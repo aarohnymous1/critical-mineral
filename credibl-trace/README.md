@@ -1,5 +1,7 @@
 # Credibl Trace — Critical Minerals Traceability
 
+**▶ Live demo: https://aarohnymous1.github.io/critical-mineral/**
+
 A working frontend prototype of the third platform in the Credibl family, alongside
 **Credibl Essentials** (climate reporting) and **Credibl ESG** (enterprise sustainability).
 

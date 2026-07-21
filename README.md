@@ -1,5 +1,7 @@
 # Critical Minerals Traceability
 
+**▶ Live demo: https://aarohnymous1.github.io/critical-mineral/**
+
 Prototype work for a critical-minerals traceability platform aimed at **downstream customers** —
 the OEMs and importers that carry the legal duty to prove provenance but sit furthest from the mine.
 
@@ -35,6 +37,12 @@ Three consequences fall out of that:
 3. **AI proposes, people decide.** Fourteen agents raise findings with their full reasoning and a
    confidence figure. None of them acts. The human decision is what writes back to the graph — which
    is what makes the audit trail defensible.
+
+## Deployment
+
+Pushing to `main` builds and publishes the prototype to GitHub Pages automatically
+(`.github/workflows/deploy.yml`). The `GITHUB_PAGES` env var switches Vite's base path to the
+repo subpath for production; local dev stays at the root.
 
 ## Status
 
