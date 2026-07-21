@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-white font-sans text-[14px] text-body antialiased;
+  }
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring/40 ring-offset-1;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-white bg-border-strong;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-fg/60;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* ---- buttons (Essentials §33: pills, one primary per zone) ---- */
+  .btn {
+    @apply inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm
+      font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-md {
+    @apply h-9 px-4;
+  }
+  .btn-sm {
+    @apply h-8 px-3 text-[13px];
+  }
+  .btn-xs {
+    @apply h-7 px-2.5 text-[12px];
+  }
+  .btn-primary {
+    @apply bg-primary text-white shadow-xs hover:bg-primary-hover;
+  }
+  .btn-soft {
+    @apply bg-indigo-soft text-indigo-brand hover:bg-[#E0E7FF];
+  }
+  .btn-ai {
+    @apply bg-ai text-white shadow-xs hover:bg-ai-deep;
+  }
+  .btn-ai-soft {
+    @apply border border-ai-border bg-ai-soft text-ai-deep hover:bg-[#EDE9FE];
+  }
+  .btn-outline {
+    @apply rounded-md border border-primary bg-transparent text-primary hover:bg-soft-blue;
+  }
+  .btn-neutral {
+    @apply rounded-md border border-border-base bg-white text-slate-700 hover:bg-muted;
+  }
+  .btn-ghost {
+    @apply text-slate-600 hover:bg-muted hover:text-slate-900;
+  }
+  .btn-warn {
+    @apply border border-amber-border bg-soft-amber text-amber-text hover:bg-[#FEF3C7];
+  }
+  .btn-danger {
+    @apply bg-risk text-white hover:bg-[#DC2626];
+  }
+
+  /* ---- surfaces ---- */
+  .card {
+    @apply rounded-lg border border-border-base bg-white;
+  }
+  .card-p {
+    @apply rounded-lg border border-border-base bg-white p-5;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-semibold;
+  }
+  .field {
+    @apply h-9 w-full rounded-md border border-border-base bg-white px-3 text-sm text-body
+      placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/20;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- table (Essentials §37) ---- */
+  .tbl {
+    @apply w-full border-collapse text-left;
+  }
+  .tbl thead th {
+    @apply whitespace-nowrap border-b border-border-base bg-[#F9FAFB] px-4 py-2.5 text-[11px]
+      font-semibold uppercase tracking-[0.04em] text-muted-fg;
+  }
+  .tbl tbody td {
+    @apply border-b border-border-base px-4 py-3 align-middle text-[13px] text-body;
+  }
+  .tbl tbody tr:hover {
+    @apply bg-[#F9FAFB];
+  }
+  .tbl tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .skeleton {
+    @apply animate-shimmer rounded bg-gradient-to-r from-muted via-[#FAFAFA] to-muted bg-[length:1000px_100%];
+  }
+}
