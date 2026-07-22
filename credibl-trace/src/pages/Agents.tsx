@@ -67,7 +67,7 @@ export function Agents() {
     <>
       <PageHeader
         title="Agent console"
-        description="Fourteen agents run across the evidence graph. None of them decides anything — every conclusion is a finding with its reasoning attached, waiting for a person."
+        description={`${agents.length} agents run across the evidence graph. The verifiers interrogate claims; the two Earth Watch observers watch the world. None of them decides anything.`}
         context={
           <>
             <AiTag label={`${agents.length} agents`} />

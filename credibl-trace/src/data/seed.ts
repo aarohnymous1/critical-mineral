@@ -2226,6 +2226,34 @@ export const AGENTS: AiAgent[] = [
     lastRun: '3 days ago',
   },
   {
+    id: 'ag-geosignal',
+    name: 'Geo Signal Monitor',
+    role: 'Risk',
+    description:
+      'Watches weather alerts, natural events and fire detections, geo-matches each to your entities and drafts what it means for you. Produces signals, not findings.',
+    cadence: 'Continuous',
+    status: 'active',
+    runsToday: 18,
+    itemsProcessed: 3120,
+    findingsOpen: 0,
+    precision: 0.84,
+    lastRun: '22 minutes ago',
+  },
+  {
+    id: 'ag-climatebase',
+    name: 'Climate Baseline',
+    role: 'Risk',
+    description:
+      'Maintains chronic hazard ratings for every entity and flags anomalies against the 30-year normal. Observes the world; never scores it.',
+    cadence: 'Weekly',
+    status: 'active',
+    runsToday: 1,
+    itemsProcessed: 248,
+    findingsOpen: 0,
+    precision: 0.9,
+    lastRun: '11 hours ago',
+  },
+  {
     id: 'ag-scheme',
     name: 'Scheme Monitor',
     role: 'Risk',
@@ -2241,6 +2269,8 @@ export const AGENTS: AiAgent[] = [
 ]
 
 export const ACTIVITY: ActivityEvent[] = [
+  { id: 'ac-e1', on: '2026-07-21 06:12', actor: 'Geo Signal Monitor', actorKind: 'agent', action: 'Raised a signal', detail: 'Cyclone alert over the Bangka Strait upgraded to Warning; Bangka Tin Smelter in the projected path.', entity: 'al-bangka' },
+  { id: 'ac-e2', on: '2026-07-20 04:02', actor: 'Geo Signal Monitor', actorKind: 'agent', action: 'Raised a signal', detail: 'M6.1 earthquake 38 km from Sulawesi Nickel HPAL; damage assessment pending.', entity: 'pe-morowali' },
   { id: 'ac-1', on: '2026-07-21 08:42', actor: 'Regulatory Horizon', actorKind: 'agent', action: 'Mapped a regulatory event to your chain', detail: 'Section 232 decision window close matched to 2 nodes.', entity: 'ev-5' },
   { id: 'ac-2', on: '2026-07-19 16:10', actor: 'Entity Resolver', actorKind: 'agent', action: 'Opened a finding', detail: '3 of 41 CMRT smelter names unmatched; candidates found above threshold.', entity: 'fi-12' },
   { id: 'ac-3', on: '2026-07-18 11:05', actor: 'Regime Reconciler', actorKind: 'agent', action: 'Opened a finding', detail: 'MOFCOM licence and FEOC worksheet make contradictory origin claims.', entity: 'fi-10' },

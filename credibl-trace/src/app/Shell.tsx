@@ -16,7 +16,8 @@ const NAV: { id: PageId; label: string; icon: IconName; group?: string }[] = [
   { id: 'agents', label: 'Agent console', icon: 'bot', group: 'Verify' },
   { id: 'packs', label: 'Compliance packs', icon: 'clipboard', group: 'Comply' },
   { id: 'passport', label: 'Battery passport', icon: 'battery', group: 'Comply' },
-  { id: 'watchtower', label: 'Risk watchtower', icon: 'radar', group: 'Comply' },
+  { id: 'watchtower', label: 'Risk watchtower', icon: 'radar', group: 'Monitor' },
+  { id: 'earth', label: 'Earth watch', icon: 'globe', group: 'Monitor' },
 ]
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -61,7 +62,13 @@ export function Shell({ children }: { children: ReactNode }) {
               {g.items.map((item) => {
                 const active = page === item.id
                 const badge =
-                  item.id === 'verification' ? metrics.openFindings : item.id === 'watchtower' ? metrics.critical : 0
+                  item.id === 'verification'
+                    ? metrics.openFindings
+                    : item.id === 'watchtower'
+                      ? metrics.critical
+                      : item.id === 'earth'
+                        ? metrics.earthNew
+                        : 0
                 return (
                   <button
                     key={item.id}
@@ -77,7 +84,11 @@ export function Shell({ children }: { children: ReactNode }) {
                     {sidebarOpen && badge > 0 && (
                       <span
                         className={`num rounded-full px-1.5 py-px text-[10.5px] font-semibold ${
-                          item.id === 'verification' ? 'bg-ai-soft text-ai-deep' : 'bg-soft-red text-status-error'
+                          item.id === 'verification'
+                            ? 'bg-ai-soft text-ai-deep'
+                            : item.id === 'earth'
+                              ? 'bg-earth-soft text-earth-deep'
+                              : 'bg-soft-red text-status-error'
                         }`}
                       >
                         {badge}

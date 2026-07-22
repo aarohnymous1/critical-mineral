@@ -5,6 +5,7 @@ import { Chart } from '../ui/Chart'
 import {
   AiTag,
   Badge,
+  Banner,
   Card,
   CardTitle,
   EmptyState,
@@ -105,6 +106,20 @@ export function Watchtower() {
           onClick={() => go('chain')}
         />
         <KpiCard label="Feeds monitored" value="2,140" icon="radar" tone="violet" sub="Items screened by Regulatory Horizon today" />
+      </div>
+
+      <div className="mb-4">
+        <Banner
+          tone="info"
+          icon="globe"
+          title="Physical-world signals live in Earth watch"
+          body="This screen tracks human-world events: regulatory, enforcement, export controls, sanctions. Weather, natural events, anomalies and fire are monitored separately — two ledgers, never one number."
+          action={
+            <button onClick={() => go('earth')} className="btn btn-sm btn-neutral">
+              Open Earth watch
+            </button>
+          }
+        />
       </div>
 
       <div className="mb-4">

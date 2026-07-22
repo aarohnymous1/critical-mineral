@@ -5,6 +5,7 @@ import { Agents } from './pages/Agents'
 import { ChainMap } from './pages/ChainMap'
 import { CommandCentre } from './pages/CommandCentre'
 import { CompliancePacks } from './pages/CompliancePacks'
+import { EarthWatch } from './pages/EarthWatch'
 import { EvidenceVault } from './pages/EvidenceVault'
 import { Passport } from './pages/Passport'
 import { Products } from './pages/Products'
@@ -23,6 +24,7 @@ const PAGES = {
   packs: CompliancePacks,
   passport: Passport,
   watchtower: Watchtower,
+  earth: EarthWatch,
 } as const
 
 export function App() {

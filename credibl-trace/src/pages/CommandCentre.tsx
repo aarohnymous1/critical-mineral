@@ -17,6 +17,7 @@ import {
 import { useConfidence, useMetrics, useStore } from '../data/store'
 import { CONFIDENCE_META, FINDING_KIND_META } from '../data/types'
 import { ORG, TODAY } from '../data/seed'
+import { ALERTS, ANOMALIES, ATTENTION_META, attentionFor, CHRONIC, FIRES, NATURAL_EVENTS } from '../data/earth'
 
 const daysBetween = (iso: string) => Math.round((new Date(iso).getTime() - TODAY.getTime()) / 86_400_000)
 
@@ -340,6 +341,22 @@ export function CommandCentre() {
                 ))}
             </div>
           </Card>
+
+          {/* Outside-in — deliberately separate from every compliance KPI above */}
+          <Card className="border-earth-border bg-earth-soft/40">
+            <CardTitle
+              icon="globe"
+              sub="Physical signals — monitored separately from compliance risk"
+              right={
+                <button onClick={() => go('earth')} className="btn btn-sm btn-neutral">
+                  Open
+                </button>
+              }
+            >
+              Earth watch
+            </CardTitle>
+            <EarthMiniCounts />
+          </Card>
         </div>
       </div>
 
@@ -394,4 +411,51 @@ export function CommandCentre() {
 
 function rank(s: string) {
   return { critical: 3, high: 2, medium: 1, low: 0 }[s] ?? 0
+}
+
+function EarthMiniCounts() {
+  const { signalStates, nodes, selectNode, go } = useStore()
+  const live = (id: string) => {
+    const st = signalStates[id]?.state ?? 'new'
+    return st !== 'closed' && st !== 'not_relevant'
+  }
+  const counts = [
+    { label: 'Alerts', value: ALERTS.filter((a) => live(a.id)).length, icon: 'radar' as const },
+    { label: 'Events', value: NATURAL_EVENTS.filter((e) => e.status === 'ongoing' && live(e.id)).length, icon: 'globe' as const },
+    { label: 'Anomalies', value: ANOMALIES.filter((a) => live(a.id)).length, icon: 'trend' as const },
+    { label: 'Fire', value: FIRES.filter((f) => live(f.id)).length, icon: 'flame' as const },
+    { label: 'Reviews due', value: CHRONIC.filter((c) => c.reviewDue).length, icon: 'clock' as const },
+  ]
+  const top = nodes
+    .map((n) => ({ n, att: attentionFor(n.id, signalStates) }))
+    .find((x) => x.att.level === 'active')
+  return (
+    <>
+      <div className="grid grid-cols-5 gap-1.5">
+        {counts.map((c) => (
+          <div key={c.label} className="rounded-lg border border-earth-border bg-white px-1.5 py-2 text-center">
+            <Icon name={c.icon} className="mx-auto h-3.5 w-3.5 text-earth" />
+            <div className="num mt-1 text-[15px] font-bold leading-none text-foreground">{c.value}</div>
+            <div className="mt-0.5 text-[9.5px] font-medium text-muted-fg">{c.label}</div>
+          </div>
+        ))}
+      </div>
+      {top && (
+        <button
+          onClick={() => {
+            go('earth')
+            selectNode(top.n.id)
+          }}
+          className="mt-3 flex w-full items-center gap-2 rounded-lg border border-earth-border bg-white px-3 py-2 text-left hover:border-earth"
+        >
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: ATTENTION_META.active.color }} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[12px] font-semibold text-foreground">{top.n.name}</span>
+            <span className="block truncate text-[11px] text-muted-fg">{top.att.rules[0]}</span>
+          </span>
+          <Icon name="chevronRight" className="h-3.5 w-3.5 shrink-0 text-muted-fg" />
+        </button>
+      )}
+    </>
+  )
 }

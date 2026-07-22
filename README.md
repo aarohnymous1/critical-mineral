@@ -34,9 +34,13 @@ Three consequences fall out of that:
 2. **One evidence base, many regimes.** Battery passport, UFLPA rebuttal, Section 232 smelt-and-cast,
    FEOC traced value, CMRT, recycled content and due-diligence reporting are all generated from the
    same graph rather than collected separately.
-3. **AI proposes, people decide.** Fourteen agents raise findings with their full reasoning and a
-   confidence figure. None of them acts. The human decision is what writes back to the graph — which
-   is what makes the audit trail defensible.
+3. **AI proposes, people decide.** Sixteen agents raise findings and signals with their full
+   reasoning and a confidence figure. None of them acts. The human decision is what writes back to
+   the graph — which is what makes the audit trail defensible.
+4. **Two ledgers, never one number.** Earth Watch adds outside-in physical monitoring — climate
+   baselines, anomalies, weather alerts, natural events and fire — mapped onto the same entities but
+   kept strictly apart from compliance risk. Each layer keeps its native severity scale; the only
+   cross-layer synthesis is a rule-based attention flag that always shows the rule that raised it.
 
 ## Deployment
 

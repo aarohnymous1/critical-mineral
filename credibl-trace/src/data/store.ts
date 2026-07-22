@@ -31,6 +31,7 @@ import type {
   VeraMessage,
 } from './types'
 import { CONFIDENCE_META } from './types'
+import { ALL_SIGNALS, INITIAL_SIGNAL_STATES, attentionFor, type SignalAck, type SignalState } from './earth'
 
 export interface Toast {
   id: string
@@ -58,6 +59,8 @@ export interface AppState {
   events: RiskEvent[]
   agents: AiAgent[]
   activity: ActivityEvent[]
+  /** Earth Watch signal lifecycle — the outside-in ledger's only mutable state. */
+  signalStates: Record<string, SignalAck>
 
   // ---- ui ----
   page: PageId
@@ -98,6 +101,8 @@ export interface AppState {
   runAgent: (agentId: string) => void
   uploadDocument: (title: string, nodeId: string) => void
   assessEvent: (eventId: string) => void
+  /** Earth Watch: acknowledge / monitor / close a physical signal. Never touches the evidence graph. */
+  setSignalState: (signalId: string, state: SignalState, note: string) => void
 
   // ---- vera ----
   openVera: (seedQuestion?: string) => void
@@ -129,6 +134,7 @@ export const useStore = create<AppState>((set, get) => ({
   events: EVENTS,
   agents: AGENTS,
   activity: ACTIVITY,
+  signalStates: INITIAL_SIGNAL_STATES,
 
   page: 'command',
   sidebarOpen: true,
@@ -353,6 +359,26 @@ export const useStore = create<AppState>((set, get) => ({
     })),
 
   // -----------------------------------------------------------------------
+  // Earth Watch — Rule 6: a signal action writes to signalStates and the
+  // activity trail, and to NOTHING else. No packs, no findings, no nodes.
+  // -----------------------------------------------------------------------
+  setSignalState: (signalId, state, note) =>
+    set((s) => {
+      const sig = ALL_SIGNALS.find((x) => x.id === signalId)
+      const labels: Record<SignalState, string> = {
+        new: 'Reopened a signal',
+        acknowledged: 'Acknowledged a signal',
+        monitoring: 'Moved a signal to monitoring',
+        not_relevant: 'Marked a signal not relevant',
+        closed: 'Closed a signal',
+      }
+      return {
+        signalStates: { ...s.signalStates, [signalId]: { state, by: 'Anjali Rao', on: stamp(), note } },
+        ...logActivity({ ...s } as AppState, 'Anjali Rao', 'human', labels[state], `${sig?.title ?? signalId} — ${note}`, signalId),
+      }
+    }),
+
+  // -----------------------------------------------------------------------
   // Ask VERA
   // -----------------------------------------------------------------------
   openVera: (seedQuestion) => {
@@ -414,6 +440,9 @@ export const selectMetrics = (s: AppState) => {
     docsSuspect: s.docs.filter((d) => d.forensics.verdict !== 'clean').length,
     agentFindingsToday: s.findings.filter((f) => f.detectedOn >= '2026-07-14').length,
     itemsProcessed: s.agents.reduce((a, g) => a + g.itemsProcessed, 0),
+    // Earth Watch — deliberately separate keys; never folded into the above.
+    earthNew: ALL_SIGNALS.filter((x) => (s.signalStates[x.id]?.state ?? 'new') === 'new').length,
+    earthActive: s.nodes.filter((n) => attentionFor(n.id, s.signalStates).level === 'active').length,
   }
 }
 
@@ -464,6 +493,7 @@ function buildNarrative(pack: CompliancePack, findings: Finding[]): string {
 // ---------------------------------------------------------------------------
 export const VERA_SUGGESTIONS = [
   'What is blocking the battery passport?',
+  'What physical signals affect our chain right now?',
   'Can we clear the UFLPA detention in time?',
   'Where is our cobalt actually coming from?',
   'Which suppliers should I chase first?',
@@ -513,6 +543,38 @@ function answerVera(q: string, s: AppState): Omit<VeraMessage, 'id'> {
     }
   }
 
+  if (t.includes('drought') || (t.includes('compliance') && t.includes('change'))) {
+    return {
+      role: 'assistant',
+      text: `No — and the distinction matters, so let me be precise about it.\n\nThe Katanga drought is a Rare-band anomaly: rainfall 62% below the 30-year normal, three months running, over Kolwezi Hydromet and the Lualaba mine. Refining there is hydropower-fed, so this is a continuity risk — smelter uptime, shipment timing, possibly force majeure clauses.\n\nYour compliance position is unchanged. Evidence confidence on those entities is exactly what it was; the mass-balance finding is open for its own reasons and would be open in a wet year too. The two ledgers meet side by side on the entity file, and neither moves the other.\n\nWhat I would do: keep the anomaly on monitoring, and treat any re-sourcing decision it forces as a new evidence-acquisition problem — a substitute refiner starts at self-declared.`,
+      metrics: [
+        { label: 'Rainfall vs normal', value: '-62', unit: '%' },
+        { label: 'Months persisted', value: '3' },
+        { label: 'Compliance impact', value: 'None' },
+      ],
+      actions: [
+        { label: 'Open Earth watch', page: 'earth' },
+        { label: 'Open the chain map', page: 'chain' },
+      ],
+    }
+  }
+
+  if (t.includes('physical') || t.includes('earth') || t.includes('weather') || t.includes('cyclone') || t.includes('fire') || t.includes('earthquake') || t.includes('signal')) {
+    return {
+      role: 'assistant',
+      text: `Five layers, each on its own clock and its own scale — I will not blend them into one number.\n\nWeather alerts: a Warning-level cyclone over the Bangka Strait with the tin smelter in its projected path, and a heat Watch over our own Pune plant for three days.\n\nNatural events: an M6.1 earthquake 38 km from Sulawesi Nickel HPAL, damage assessment pending. Note that nickel is your best-evidenced leg — physical exposure is orthogonal to evidence quality.\n\nAnomalies: Katanga rainfall 62% below normal (third month), and Exceptional heat over Yunnan with hydropower-rationing precedent.\n\nFire: a 14-detection cluster near the Cabo Delgado graphite mine, closing from 22 km to 9 km over six days.\n\nThree entities are flagged Active — Bangka, Sulawesi HPAL and Cabo Delgado — each by an explicit rule you can read on the flag. None of this changes any pack readiness or any finding; the two ledgers stay apart.`,
+      metrics: [
+        { label: 'Live alerts', value: '2' },
+        { label: 'Active entities', value: '3' },
+        { label: 'Compliance impact', value: 'None' },
+      ],
+      actions: [
+        { label: 'Open Earth watch', page: 'earth' },
+        { label: 'View flagged entities', page: 'chain' },
+      ],
+    }
+  }
+
   if (t.includes('cobalt') || t.includes('kolwezi') || t.includes('drc') || t.includes('congo')) {
     return {
       role: 'assistant',
@@ -543,6 +605,23 @@ function answerVera(q: string, s: AppState): Omit<VeraMessage, 'id'> {
         { label: 'Overdue', value: String(s.requests.filter((r) => r.status === 'overdue').length) },
       ],
       actions: [{ label: 'Open suppliers', page: 'suppliers' }],
+    }
+  }
+
+  if (t.includes('tin') && (t.includes('threat') || t.includes('bangka'))) {
+    return {
+      role: 'assistant',
+      text: `Bangka Tin Smelter is carrying problems in both ledgers at once — which makes it the clearest demonstration of why we keep them apart.\n\nEvidence ledger: the origin-anomaly finding is still open. Declared Indonesian feedstock exceeds the named concessions' capacity by 18%, and the residual matches Myanmar transshipment volumes. That is a conflict-minerals reporting problem.\n\nPhysical ledger: a Warning-level cyclone is tracking across the Bangka Strait, port operations are suspended, and the smelter sits in the projected path for the next ~33 hours. That is a continuity problem.\n\nSame entity, two unrelated failure modes. A blended score would tell you Bangka is "very risky" and hide both of the specific actions: the evidence problem needs concentrate origin records; the physical one needs a shipment-timing decision this week.`,
+      metrics: [
+        { label: 'Alert level', value: 'Warning' },
+        { label: 'Origin gap', value: '18', unit: '%' },
+        { label: 'Ledgers affected', value: '2' },
+      ],
+      cites: [{ label: 'Bangka feedstock exceeds concession output', ref: 'fi-05' }],
+      actions: [
+        { label: 'Open Earth watch', page: 'earth' },
+        { label: 'Review the finding', page: 'verification' },
+      ],
     }
   }
 
@@ -609,7 +688,7 @@ function answerVera(q: string, s: AppState): Omit<VeraMessage, 'id'> {
   if (t.includes('agent') || t.includes('ai') || t.includes('how do you')) {
     return {
       role: 'assistant',
-      text: `Fourteen agents run across your graph. Four acquire data — extraction, chase, inference, horizon scanning. Six verify it — entity resolution, mass balance, document forensics, origin anomaly, PCF validation, recycled-content maths. Four watch risk — ownership screening, scheme status, ASM presence, regulatory events.\n\nToday they have processed ${m.itemsProcessed.toLocaleString()} items and opened ${m.agentFindingsToday} findings in the last week.\n\nThe important part is that none of them decide anything. Every finding carries its reasoning, its sources and a confidence figure, and a human accepts, dismisses or escalates it. That decision is what writes back into the graph — which is what makes the audit trail defensible.`,
+      text: `Sixteen agents run across your graph. Four acquire data — extraction, chase, inference, horizon scanning. Six verify it — entity resolution, mass balance, document forensics, origin anomaly, PCF validation, recycled-content maths. Six watch risk — ownership screening, scheme status, ASM presence, regulatory events, plus two observers for the physical world: Geo Signal Monitor and Climate Baseline. The observers produce signals, not findings — there is nothing to refute about a cyclone.\n\nToday they have processed ${m.itemsProcessed.toLocaleString()} items and opened ${m.agentFindingsToday} findings in the last week.\n\nThe important part is that none of them decide anything. Every finding carries its reasoning, its sources and a confidence figure, and a human accepts, dismisses or escalates it. That decision is what writes back into the graph — which is what makes the audit trail defensible.`,
       metrics: [
         { label: 'Agents', value: String(s.agents.length) },
         { label: 'Items processed', value: m.itemsProcessed.toLocaleString() },

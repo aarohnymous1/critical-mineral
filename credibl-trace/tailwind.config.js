@@ -25,6 +25,9 @@ export default {
         indigo: { brand: '#4338CA', soft: '#EEF2FF' },
         // AI / verification accent — purple carries every machine-generated surface
         ai: { DEFAULT: '#7C3AED', soft: '#F5F3FF', border: '#DDD6FE', deep: '#5B21B6' },
+        // Earth / outside-in accent — cyan marks every physical-monitoring surface
+        // (Rule 8 of the Earth Watch spec: same family, different accent)
+        earth: { DEFAULT: '#2790AA', soft: '#E9F5F9', border: '#B8E2F1', deep: '#18627E' },
         soft: {
           blue: '#EFF6FF',
           green: '#F0FDF4',

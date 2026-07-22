@@ -41,7 +41,7 @@ whole product, and it is what regime packs disclose per claim.
 
 ## Where AI sits
 
-Fourteen agents in four roles. None of them decides anything — each produces a *finding*
+Sixteen agents in four roles. None of them decides anything — each produces a *finding* or a *signal*
 with its reasoning, its sources and a confidence figure, and a person accepts, dismisses or
 escalates it. That decision is what writes back into the graph, which is what makes the
 audit trail defensible.
@@ -50,7 +50,7 @@ audit trail defensible.
 |---|---|
 | Acquisition | Document Extraction, Supplier Chase |
 | Verification | Entity Resolver, Mass Balance Auditor, Document Forensics, Origin Anomaly Detector, PCF Validator, Chain Inference |
-| Risk | Ownership Graph, Scheme Monitor, ASM Monitor, Regulatory Horizon |
+| Risk | Ownership Graph, Scheme Monitor, ASM Monitor, Regulatory Horizon, Geo Signal Monitor, Climate Baseline |
 | Compliance | Regime Reconciler, Recycled Content Engine |
 
 **Ask VERA** (the traceability sibling of Ask EVA in Credibl ESG) answers only from the live
@@ -66,10 +66,11 @@ graph and shows the evidence it used.
 | Suppliers & campaigns | Cascades, gap-specific AI chases, selective disclosure |
 | Evidence vault | Extraction with per-field confidence, document forensics, quarantine |
 | AI verification | The moat: every finding's full reasoning chain and the human decision loop |
-| Agent console | The fourteen agents, precision, on-demand runs, audit log |
+| Agent console | The sixteen agents, precision, on-demand runs, audit log |
 | Compliance packs | Eight regimes generated from one evidence base |
 | Battery passport | Passport fields with evidence rungs; payload in Catena-X / GBA / UNTP |
-| Risk watchtower | External events mapped onto your own entities |
+| Risk watchtower | Human-world events (regulatory, enforcement) mapped onto your own entities |
+| Earth watch | Outside-in physical monitoring: chronic climate risk, anomalies, weather alerts, natural events, fire — on a real map, demarcated from compliance risk |
 
 ## The loop worth trying
 
@@ -88,15 +89,18 @@ left sidebar with blue active pill, pill buttons, 8–12px radii, minimal shadow
 is shared by both and anchors this third platform. Purple `#7C3AED` is added as the AI accent —
 it marks every machine-generated surface so users can always tell what a model produced.
 
-All charts are Apache ECharts using the shared `credibl` theme in `src/ui/Chart.tsx`.
+All charts are Apache ECharts using the shared `credibl` theme in `src/ui/Chart.tsx`. The supply
+chain map and Earth Watch render on **MapLibre GL** (the open-source Mapbox GL fork) over the CARTO
+Positron basemap — no API key required. Cyan marks every outside-in physical surface, the way purple
+marks AI.
 
 ## Layout
 
 ```
 src/
   data/     types.ts (domain model) · seed.ts (scenario) · store.ts (state + VERA)
-  ui/       Icon · Logo · kit.tsx (components) · Chart.tsx (ECharts theme)
-  app/      Shell.tsx (sidebar + content) · Vera.tsx (assistant)
+  ui/       Icon · Logo · kit.tsx (components) · Chart.tsx (ECharts theme) · MapView.tsx (MapLibre)
+  app/      Shell.tsx (sidebar + content) · Vera.tsx (assistant) · NodeDrawer.tsx (entity file)
   pages/    one file per screen
 ```
 

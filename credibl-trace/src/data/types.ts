@@ -433,3 +433,4 @@ export type PageId =
   | 'passport'
   | 'watchtower'
   | 'agents'
+  | 'earth'

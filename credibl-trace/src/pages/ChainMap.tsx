@@ -1,30 +1,27 @@
-import { useCallback, useMemo, useState } from 'react'
-import type { EChartsOption } from 'echarts'
+import { useMemo, useState } from 'react'
+import type { LayerSpecification } from 'maplibre-gl'
 import { Icon } from '../ui/Icon'
-import { Chart } from '../ui/Chart'
+import { MapView } from '../ui/MapView'
+import { NodeDrawer } from '../app/NodeDrawer'
 import {
   AiTag,
   Badge,
   Banner,
   Card,
   CardTitle,
-  ConfidenceBadge,
   ConfidenceLegend,
-  Drawer,
   Flag,
   KpiCard,
-  MetaRow,
   PageHeader,
   Progress,
   Segmented,
 } from '../ui/kit'
 import { useConfidence, useMetrics, useStore } from '../data/store'
 import { MINERAL_META } from '../data/seed'
-import { CONFIDENCE_META, FIDELITY_META, NODE_KIND_META, RISK_FLAG_META } from '../data/types'
+import { CONFIDENCE_META, NODE_KIND_META, RISK_FLAG_META } from '../data/types'
+import { arc, CHAIN_BOUNDS, NODE_COORDS } from '../data/geo'
 
 type ColorBy = 'confidence' | 'risk' | 'mineral'
-
-const TIER_LABELS = ['Own operations', 'Tier 1', 'Tier 2', 'Tier 3', 'Tier 4 — refining', 'Tier 5 — mining']
 
 export function ChainMap() {
   const { nodes, flows, findings, selectedNodeId, selectNode, acceptInferredFlow, pushToast, openVera, go, selectFinding } =
@@ -52,145 +49,114 @@ export function ChainMap() {
     [flows, visibleIds, mineral, showInferred],
   )
 
-  const nodeColor = useCallback(
-    (id: string) => {
-      const n = nodes.find((x) => x.id === id)!
-      if (colorBy === 'confidence') return CONFIDENCE_META[n.confidence].color
-      if (colorBy === 'risk') {
-        if (n.riskFlags.some((r) => RISK_FLAG_META[r].severity === 'critical')) return '#DC2626'
-        if (n.riskFlags.length > 0) return '#D97706'
-        return '#16A34A'
-      }
-      return MINERAL_META[n.minerals[0]]?.color ?? '#73778C'
-    },
-    [nodes, colorBy],
-  )
+  const nodeColor = (id: string) => {
+    const n = nodes.find((x) => x.id === id)!
+    if (colorBy === 'confidence') return CONFIDENCE_META[n.confidence].color
+    if (colorBy === 'risk') {
+      if (n.riskFlags.some((r) => RISK_FLAG_META[r].severity === 'critical')) return '#DC2626'
+      if (n.riskFlags.length > 0) return '#D97706'
+      return '#16A34A'
+    }
+    return MINERAL_META[n.minerals[0]]?.color ?? '#73778C'
+  }
 
-  const option: EChartsOption = useMemo(
-    () => ({
-      grid: { left: 30, right: 30, top: 42, bottom: 16, containLabel: false },
-      // Headroom above y=0 so the tier lane labels have somewhere to sit.
-      xAxis: { type: 'value', min: 0, max: 103, show: false },
-      yAxis: { type: 'value', min: -9, max: 104, inverse: true, show: false },
-      tooltip: {
-        trigger: 'item',
-        formatter: (p: unknown) => {
-          const q = p as { dataType: string; data: Record<string, unknown> }
-          if (q.dataType === 'edge') {
-            const fl = visibleFlows.find((f) => f.id === q.data.id)
-            if (!fl) return ''
-            const from = nodes.find((n) => n.id === fl.from)?.name
-            const to = nodes.find((n) => n.id === fl.to)?.name
-            return `<b>${from} → ${to}</b><br/>${MINERAL_META[fl.mineral]?.label ?? fl.mineral} · ${
-              FIDELITY_META[fl.fidelity].label
-            }<br/>${
-              fl.status === 'ai_inferred'
-                ? `<span style="color:#7C3AED">AI-inferred · ${Math.round((fl.inference?.probability ?? 0) * 100)}% probable</span>`
-                : fl.status === 'disputed'
-                  ? '<span style="color:#DC2626">Disputed</span>'
-                  : 'Declared and confirmed'
-            }${fl.volume ? `<br/>${fl.volume.toLocaleString()} ${fl.unit}` : ''}`
-          }
-          const n = nodes.find((x) => x.id === q.data.id)
-          if (!n) return ''
-          return `<b>${n.name}</b><br/>${NODE_KIND_META[n.kind].label} · ${n.country}<br/>Evidence coverage <b>${
-            n.coverage
-          }%</b> · ${CONFIDENCE_META[n.confidence].short}${
-            n.riskFlags.length ? `<br/><span style="color:#DC2626">${n.riskFlags.length} risk flag(s)</span>` : ''
-          }`
-        },
-      },
-      series: [
-        // tier lane labels, drawn in the same coordinate system so they always align
-        {
-          type: 'scatter',
-          coordinateSystem: 'cartesian2d',
-          symbolSize: 0,
-          silent: true,
-          data: [95, 79, 63, 47, 29, 8].map((x, i) => ({
-            value: [x, -5],
-            label: {
-              show: true,
-              formatter: TIER_LABELS[i],
-              fontSize: 10.5,
-              fontWeight: 600,
-              color: '#9CA3AF',
-              position: 'inside',
-            },
-          })),
-        },
-        {
-          type: 'graph',
-          coordinateSystem: 'cartesian2d',
-          roam: false,
-          edgeSymbol: ['none', 'arrow'],
-          edgeSymbolSize: 6,
-          emphasis: { focus: 'adjacency', scale: false, lineStyle: { width: 2.5 } },
-          label: {
-            show: true,
-            position: 'right',
-            distance: 7,
-            fontSize: 10,
-            color: '#334155',
-            width: 96,
-            overflow: 'break',
-            formatter: (p: unknown) => {
-              const q = p as { data: { shortName: string } }
-              return q.data.shortName
-            },
+  // ---- GeoJSON sources: real geography replaces tier lanes ----
+  const sources = useMemo(() => {
+    const nodeFc: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: visibleNodes.map((n) => {
+        const sel = n.id === selectedNodeId
+        return {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: NODE_COORDS[n.id] },
+          properties: {
+            id: n.id,
+            label: n.name.length > 26 ? `${n.name.slice(0, 24)}…` : n.name,
+            color: nodeColor(n.id),
+            r: n.kind === 'own' ? 9 : n.tier <= 1 ? 8 : 6.5,
+            stroke: sel ? '#0A7AEB' : n.riskFlags.length ? '#DC2626' : '#FFFFFF',
+            strokeW: sel ? 3 : n.riskFlags.length ? 1.8 : 1.4,
           },
-          data: visibleNodes.map((n) => {
-            const isSel = n.id === selectedNodeId
-            return {
-              id: n.id,
-              name: n.name,
-              shortName: n.name.length > 26 ? `${n.name.slice(0, 24)}…` : n.name,
-              value: [n.x, n.y],
-              symbol: n.kind === 'own' ? 'rect' : n.kind === 'mine' || n.kind === 'asm' ? 'diamond' : 'circle',
-              symbolSize: n.kind === 'own' ? 20 : n.tier <= 1 ? 17 : 13,
-              itemStyle: {
-                color: nodeColor(n.id),
-                borderColor: isSel ? '#0A7AEB' : n.riskFlags.length ? '#DC2626' : '#FFFFFF',
-                borderWidth: isSel ? 3.5 : n.riskFlags.length ? 2 : 1.5,
-                shadowBlur: isSel ? 10 : 0,
-                shadowColor: 'rgba(10,122,235,0.4)',
-              },
-              label: { fontWeight: isSel ? 700 : 400, color: isSel ? '#0A7AEB' : '#334155' },
-            }
-          }),
-          links: visibleFlows.map((f) => ({
-            id: f.id,
-            source: f.from,
-            target: f.to,
-            lineStyle: {
-              color: f.status === 'ai_inferred' ? '#7C3AED' : f.status === 'disputed' ? '#DC2626' : '#94A3B8',
-              width: f.fidelity === 'lot' ? 2 : f.fidelity === 'shipment' ? 1.5 : 1,
-              type: f.status === 'ai_inferred' ? 'dashed' : f.status === 'disputed' ? 'dotted' : 'solid',
-              opacity: f.status === 'ai_inferred' ? 0.9 : 0.7,
-              curveness: 0.08,
-            },
-          })),
+        }
+      }),
+    }
+    const flowFc: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: visibleFlows.map((f) => ({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: arc(NODE_COORDS[f.from], NODE_COORDS[f.to]) },
+        properties: {
+          id: f.id,
+          style: f.status === 'ai_inferred' ? 'dashed' : f.status === 'disputed' ? 'dotted' : 'solid',
+          color: f.status === 'ai_inferred' ? '#7C3AED' : f.status === 'disputed' ? '#DC2626' : '#94A3B8',
+          width: f.fidelity === 'lot' ? 2.2 : f.fidelity === 'shipment' ? 1.6 : 1.1,
         },
-      ],
-    }),
-    [visibleNodes, visibleFlows, nodes, nodeColor, selectedNodeId],
-  )
+      })),
+    }
+    return { 'chain-flows': flowFc, 'chain-nodes': nodeFc }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleNodes, visibleFlows, selectedNodeId, colorBy])
 
-  const onClick = useMemo(
-    () => ({
-      type: 'click',
-      handler: (p: unknown) => {
-        const q = p as { dataType?: string; data?: { id?: string } }
-        if (q.dataType === 'node' && q.data?.id) selectNode(q.data.id)
+  const layers = useMemo<LayerSpecification[]>(
+    () => [
+      {
+        id: 'flows-solid',
+        type: 'line',
+        source: 'chain-flows',
+        filter: ['==', ['get', 'style'], 'solid'],
+        paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-opacity': 0.55 },
       },
-    }),
-    [selectNode],
+      {
+        id: 'flows-dashed',
+        type: 'line',
+        source: 'chain-flows',
+        filter: ['==', ['get', 'style'], 'dashed'],
+        paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-opacity': 0.9, 'line-dasharray': [1.6, 1.6] },
+      },
+      {
+        id: 'flows-dotted',
+        type: 'line',
+        source: 'chain-flows',
+        filter: ['==', ['get', 'style'], 'dotted'],
+        paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-opacity': 0.8, 'line-dasharray': [0.4, 1.6] },
+      },
+      {
+        id: 'chain-nodes-c',
+        type: 'circle',
+        source: 'chain-nodes',
+        paint: {
+          'circle-radius': ['get', 'r'],
+          'circle-color': ['get', 'color'],
+          'circle-stroke-color': ['get', 'stroke'],
+          'circle-stroke-width': ['get', 'strokeW'],
+        },
+      },
+      {
+        id: 'chain-nodes-label',
+        type: 'symbol',
+        source: 'chain-nodes',
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-size': 10,
+          'text-font': ['Montserrat Regular'],
+          'text-offset': [0, 1.1],
+          'text-anchor': 'top',
+          'text-optional': true,
+        },
+        paint: { 'text-color': '#334155', 'text-halo-color': '#FFFFFF', 'text-halo-width': 1.2 },
+      },
+    ],
+    [],
   )
 
-  const selected = nodes.find((n) => n.id === selectedNodeId) ?? null
-  const inbound = selected ? flows.filter((f) => f.to === selected.id) : []
-  const outbound = selected ? flows.filter((f) => f.from === selected.id) : []
-  const nodeFindings = selected ? findings.filter((f) => f.nodeIds.includes(selected.id)) : []
+  const hoverHtml = (layerId: string, props: Record<string, unknown>) => {
+    if (layerId !== 'chain-nodes-c') return null
+    const n = nodes.find((x) => x.id === props.id)
+    if (!n) return null
+    return `<b>${n.name}</b><br/>${NODE_KIND_META[n.kind].label} · ${n.country} · Tier ${n.tier}<br/>Evidence coverage <b>${n.coverage}%</b> · ${CONFIDENCE_META[n.confidence].short}${
+      n.riskFlags.length ? `<br/><span style="color:#DC2626">${n.riskFlags.length} risk flag(s)</span>` : ''
+    }`
+  }
 
   const inferredList = flows.filter((f) => f.status === 'ai_inferred')
 
@@ -198,7 +164,7 @@ export function ChainMap() {
     <>
       <PageHeader
         title="Supply chain map"
-        description="Every entity, every material flow, five tiers deep. Colour shows how well each node's facts are evidenced — not merely that we know the name."
+        description="Every entity at its real location, every material flow between them. Colour shows how well each node's facts are evidenced — not merely that we know the name."
         context={
           <>
             <span className="chip bg-muted text-slate-700">{nodes.length} entities</span>
@@ -216,13 +182,7 @@ export function ChainMap() {
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Tiers mapped" value={6} icon="layers" tone="blue" sub="Own operations through to mine level" />
-        <KpiCard
-          label="Confirmed links"
-          value={m.confirmedFlows}
-          icon="link"
-          tone="green"
-          sub={`of ${flows.length} total material flows`}
-        />
+        <KpiCard label="Confirmed links" value={m.confirmedFlows} icon="link" tone="green" sub={`of ${flows.length} total material flows`} />
         <KpiCard
           label="AI-inferred links"
           value={m.inferredFlows}
@@ -292,9 +252,15 @@ export function ChainMap() {
             </span>
           </div>
         </div>
-        <div className="px-3 py-2">
-          <Chart option={option} height={480} onEvent={onClick} />
-        </div>
+        <MapView
+          height={520}
+          bounds={CHAIN_BOUNDS}
+          sources={sources}
+          layers={layers}
+          interactive={['chain-nodes-c']}
+          onFeatureClick={(_, props) => selectNode(String(props.id))}
+          hoverHtml={hoverHtml}
+        />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-base px-5 py-3">
           {colorBy === 'confidence' ? (
             <ConfidenceLegend counts={counts} />
@@ -322,7 +288,7 @@ export function ChainMap() {
                 ))}
             </div>
           )}
-          <span className="text-[11.5px] text-muted-fg">Click any node for its evidence file</span>
+          <span className="text-[11.5px] text-muted-fg">Ctrl + scroll to zoom · click any node for its evidence file</span>
         </div>
       </Card>
 
@@ -397,160 +363,7 @@ export function ChainMap() {
         </Card>
       )}
 
-      {/* ---- node drawer ---- */}
-      <Drawer
-        open={!!selected}
-        onClose={() => selectNode(null)}
-        title={selected?.name ?? ''}
-        badge={
-          selected && (
-            <>
-              <ConfidenceBadge c={selected.confidence} showHelp />
-              <Badge tone="grey">{NODE_KIND_META[selected.kind].label}</Badge>
-              <Badge tone="blue">Tier {selected.tier}</Badge>
-            </>
-          )
-        }
-        subtitle={
-          selected && (
-            <span className="flex items-center gap-1.5">
-              <Flag code={selected.countryCode} />
-              {selected.country} · {selected.capacity}
-            </span>
-          )
-        }
-      >
-        {selected && (
-          <div className="space-y-5">
-            {selected.note && (
-              <Banner tone={selected.riskFlags.length ? 'warning' : 'info'} icon="info" title="Context" body={selected.note} />
-            )}
-
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[12px] font-semibold text-slate-700">Evidence coverage</span>
-                <span className="num text-[12px] font-semibold text-slate-700">{selected.coverage}%</span>
-              </div>
-              <Progress
-                value={selected.coverage}
-                tone={selected.coverage >= 75 ? 'green' : selected.coverage >= 45 ? 'blue' : 'red'}
-              />
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted-fg">
-                {CONFIDENCE_META[selected.confidence].help}
-              </p>
-            </div>
-
-            <MetaRow
-              items={[
-                { label: 'Minerals', value: selected.minerals.map((k) => MINERAL_META[k]?.label ?? k).join(', ') },
-                { label: 'RMI facility ID', value: selected.rmiId ?? '—' },
-                { label: 'Ownership', value: selected.ownership ?? 'Not disclosed' },
-                { label: 'Schemes', value: selected.schemes.length ? selected.schemes.join(' · ') : 'None on file' },
-              ]}
-            />
-
-            {selected.declaredOutput && selected.certifiedInput && (
-              <Card className="border-[#FECACA] bg-soft-red">
-                <div className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-status-error">
-                  <Icon name="scale" className="h-4 w-4" />
-                  Mass balance does not close
-                </div>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <div className="num text-[17px] font-bold text-foreground">
-                      {selected.certifiedInput.value.toLocaleString()}
-                    </div>
-                    <div className="text-[11px] text-muted-fg">Certified input (t)</div>
-                  </div>
-                  <div>
-                    <div className="num text-[17px] font-bold text-foreground">
-                      {selected.declaredOutput.value.toLocaleString()}
-                    </div>
-                    <div className="text-[11px] text-muted-fg">Declared output (t)</div>
-                  </div>
-                  <div>
-                    <div className="num text-[17px] font-bold text-status-error">
-                      {(selected.declaredOutput.value - selected.certifiedInput.value).toLocaleString()}
-                    </div>
-                    <div className="text-[11px] text-muted-fg">Unexplained (t)</div>
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {selected.riskFlags.length > 0 && (
-              <div>
-                <h4 className="mb-2 text-[12.5px] font-semibold text-slate-700">Risk flags</h4>
-                <ul className="space-y-2">
-                  {selected.riskFlags.map((r) => (
-                    <li key={r} className="flex items-start gap-2.5 rounded-lg border border-border-base px-3 py-2.5">
-                      <Icon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-text" />
-                      <div>
-                        <div className="text-[12.5px] font-medium text-foreground">{RISK_FLAG_META[r].label}</div>
-                        <div className="text-[11.5px] text-muted-fg">Consequence under {RISK_FLAG_META[r].regime}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div>
-              <h4 className="mb-2 text-[12.5px] font-semibold text-slate-700">Material flows</h4>
-              <div className="space-y-1.5">
-                {inbound.map((f) => (
-                  <FlowRow key={f.id} flow={f} label={nodes.find((n) => n.id === f.from)?.name ?? ''} dir="in" />
-                ))}
-                {outbound.map((f) => (
-                  <FlowRow key={f.id} flow={f} label={nodes.find((n) => n.id === f.to)?.name ?? ''} dir="out" />
-                ))}
-                {inbound.length === 0 && outbound.length === 0 && (
-                  <p className="text-[12.5px] text-muted-fg">No flows recorded.</p>
-                )}
-              </div>
-            </div>
-
-            {nodeFindings.length > 0 && (
-              <div>
-                <h4 className="mb-2 text-[12.5px] font-semibold text-slate-700">Open findings on this entity</h4>
-                <ul className="space-y-2">
-                  {nodeFindings.map((f) => (
-                    <li key={f.id}>
-                      <button
-                        onClick={() => {
-                          selectFinding(f.id)
-                          go('verification')
-                        }}
-                        className="flex w-full items-start gap-2.5 rounded-lg border border-border-base px-3 py-2.5 text-left hover:border-primary"
-                      >
-                        <Icon name="sparkles" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ai" />
-                        <span className="min-w-0 flex-1 text-[12.5px] font-medium leading-snug text-foreground">{f.title}</span>
-                        <Icon name="chevronRight" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-fg" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-      </Drawer>
+      <NodeDrawer />
     </>
-  )
-}
-
-function FlowRow({ flow, label, dir }: { flow: { mineral: string; fidelity: keyof typeof FIDELITY_META; status: string; volume?: number; unit?: string }; label: string; dir: 'in' | 'out' }) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-md border border-border-base px-3 py-2">
-      <Icon
-        name={dir === 'in' ? 'arrowRight' : 'arrowUpRight'}
-        className={`h-3.5 w-3.5 shrink-0 ${dir === 'in' ? 'text-slate-400' : 'text-primary'}`}
-      />
-      <span className="min-w-0 flex-1 truncate text-[12.5px] text-body">{label}</span>
-      <Badge tone={flow.status === 'ai_inferred' ? 'violet' : flow.fidelity === 'lot' ? 'green' : flow.fidelity === 'shipment' ? 'blue' : 'grey'}>
-        {flow.status === 'ai_inferred' ? 'Inferred' : FIDELITY_META[flow.fidelity].label}
-      </Badge>
-      <span className="shrink-0 text-[11.5px] text-muted-fg">{MINERAL_META[flow.mineral]?.label ?? flow.mineral}</span>
-    </div>
   )
 }

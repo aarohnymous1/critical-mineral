@@ -70,7 +70,7 @@ export function Verification() {
         description="Agents test every claim in the graph against registers, capacity maths, document forensics and independent trade data. Each finding shows its reasoning; a person decides what happens next."
         context={
           <>
-            <AiTag label="14 agents" title="Extraction, verification, risk and compliance agents" />
+            <AiTag label="16 agents" title="Extraction, verification, risk and compliance agents" />
             <span className="chip bg-muted text-slate-700">Average confidence {avgConfidence}%</span>
             <span className="chip bg-soft-green text-status-success">Human decision required on every finding</span>
           </>
