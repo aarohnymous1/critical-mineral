@@ -3,6 +3,7 @@ import type { LayerSpecification } from 'maplibre-gl'
 import { Icon } from '../ui/Icon'
 import { MapView } from '../ui/MapView'
 import { NodeDrawer } from '../app/NodeDrawer'
+import { ChainNodeBoard } from './ChainNodeBoard'
 import {
   AiTag,
   Badge,
@@ -22,12 +23,14 @@ import { CONFIDENCE_META, NODE_KIND_META, RISK_FLAG_META } from '../data/types'
 import { arc, CHAIN_BOUNDS, NODE_COORDS } from '../data/geo'
 
 type ColorBy = 'confidence' | 'risk' | 'mineral'
+type BoardView = 'map' | 'nodes'
 
 export function ChainMap() {
   const { nodes, flows, findings, selectedNodeId, selectNode, acceptInferredFlow, pushToast, openVera, go, selectFinding } =
     useStore()
   const m = useMetrics()
   const counts = useConfidence()
+  const [view, setView] = useState<BoardView>('map')
   const [colorBy, setColorBy] = useState<ColorBy>('confidence')
   const [mineral, setMineral] = useState<string>('all')
   const [showInferred, setShowInferred] = useState(true)
@@ -214,6 +217,15 @@ export function ChainMap() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-base px-5 py-3">
           <div className="flex flex-wrap items-center gap-3">
             <Segmented
+              value={view}
+              onChange={setView}
+              items={[
+                { id: 'map', label: 'Map view' },
+                { id: 'nodes', label: 'Node view' },
+              ]}
+            />
+            <span className="h-5 w-px bg-border-base" />
+            <Segmented
               value={colorBy}
               onChange={setColorBy}
               items={[
@@ -252,15 +264,27 @@ export function ChainMap() {
             </span>
           </div>
         </div>
-        <MapView
-          height={520}
-          bounds={CHAIN_BOUNDS}
-          sources={sources}
-          layers={layers}
-          interactive={['chain-nodes-c']}
-          onFeatureClick={(_, props) => selectNode(String(props.id))}
-          hoverHtml={hoverHtml}
-        />
+        {view === 'map' ? (
+          <MapView
+            height={520}
+            bounds={CHAIN_BOUNDS}
+            sources={sources}
+            layers={layers}
+            interactive={['chain-nodes-c']}
+            onFeatureClick={(_, props) => selectNode(String(props.id))}
+            hoverHtml={hoverHtml}
+          />
+        ) : (
+          <div className="px-3 py-2">
+            <ChainNodeBoard
+              nodes={visibleNodes}
+              flows={visibleFlows}
+              nodeColor={nodeColor}
+              selectedNodeId={selectedNodeId}
+              onSelect={selectNode}
+            />
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-base px-5 py-3">
           {colorBy === 'confidence' ? (
             <ConfidenceLegend counts={counts} />
@@ -288,7 +312,11 @@ export function ChainMap() {
                 ))}
             </div>
           )}
-          <span className="text-[11.5px] text-muted-fg">Ctrl + scroll to zoom · click any node for its evidence file</span>
+          <span className="text-[11.5px] text-muted-fg">
+            {view === 'map'
+              ? 'Ctrl + scroll to zoom · click any node for its evidence file'
+              : 'Arranged by tier — the working view for resolving gaps · click any node for its evidence file'}
+          </span>
         </div>
       </Card>
 

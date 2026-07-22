@@ -62,7 +62,7 @@ graph and shows the evidence it used.
 |---|---|
 | Command centre | Compliance clock, evidence coverage, where visibility breaks by tier |
 | Products & BOM | Obligations attach to products; BOM resolves to minerals and chain depth |
-| Supply chain map | The graph itself — five tiers, colour by evidence quality, AI-inferred links dashed |
+| Supply chain map | Two views of the same graph: geographic Map view (MapLibre) and tier-lane Node view for working the structure — AI-inferred links dashed in both |
 | Suppliers & campaigns | Cascades, gap-specific AI chases, selective disclosure |
 | Evidence vault | Extraction with per-field confidence, document forensics, quarantine |
 | AI verification | The moat: every finding's full reasoning chain and the human decision loop |
